@@ -9,7 +9,7 @@ use File::Basename;
 use UNIVERSAL::require;
 use vars qw/$VERSION/;
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 sub new {
     my $proto      = shift;
@@ -199,7 +199,7 @@ Module::Recursive::Require - This class require module recursively.
 
 L<UNIVERSAL::require>
 
-=head1 AOUTHOR
+=head1 AUTHOR
 
 Masahiro Funakoshi <mfunakoshi+cpan@gmail.com>
 
