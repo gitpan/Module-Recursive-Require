@@ -9,7 +9,7 @@ use File::Basename;
 use UNIVERSAL::require;
 use vars qw/$VERSION/;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 sub new {
     my $proto      = shift;
@@ -26,13 +26,23 @@ sub new {
 
     my $self
         = {
-            _path       => File::Spec->catfile( $path ),
-            _filters    => [],
-            _extensions => $extensions,
-            _packages   => undef,
+            _path        => File::Spec->catfile( $path ),
+            _filters     => [],
+            _extensions  => $extensions,
+            _packages    => undef,
+            _first_loads => [],
           };
 
     return bless( $self, $class );
+}
+
+sub first_loads {
+    my $self    = shift;
+    my @modules = @_;
+
+    $self->{_first_loads} = \@modules;
+
+    return 1;
 }
 
 sub add_filter {
@@ -44,18 +54,36 @@ sub add_filter {
     return 1;
 }
 
+# * deprecated!!
 sub require_by {
+    my $self         = shift;
+    my $package_name = shift;
+
+    return $self->require_of( $package_name );
+}
+
+sub require_of {
     my $self         = shift;
     my $package_name = shift || croak "require package name!";
 
     my $modules
          = $self->_get_modules( $package_name ) or return 0;
 
+    unshift( @$modules, @{ $self->{_first_loads} })
+        if scalar @{ $self->{_first_loads} };
+
+    my $_required        = {};
+    my @required_modules = ();
+    REQUIRED:
     for my $module ( @$modules ) {
+        next REQUIRED if exists $_required->{$module};
+        
         $module->require() or croak $@;
+        $_required->{$module} = 1;
+        push @required_modules, $module;
     }
 
-    return ( wantarray ) ? @$modules : $modules;
+    return ( wantarray ) ? @required_modules : \@required_modules;
 }
 
 sub _get_modules {
@@ -172,15 +200,20 @@ Module::Recursive::Require - This class require module recursively.
  use Module::Recursive::Require;
  
  my $r = Module::Recursive::Require->new();
+ $r->first_loads(
+                    qw/
+                          MyApp::Foo::Boo
+                      /
+                );                          # * It loads first.
  $r->add_filter(qr/^Hoge/);                 # * Don't loaded  qr/^Hoge/
  $r->add_filter(qr/Base.pm$/);              # * Don't loaded  qr/Base.pm$/
  
- my @packages = $r->require_by('MyApp::Foo');
+ my @packages = $r->require_of('MyApp::Foo');
 
  # * or
 
  my $packages_array_ref
-     = $r->require_by('MyApp::Foo');
+     = $r->require_of('MyApp::Foo');
 
 =head1 METHOD
 
@@ -191,9 +224,15 @@ Module::Recursive::Require - This class require module recursively.
     extensions => 'pm'             , # * default "pm" and "pl"
  );
 
+=head2 first_loads( @package_names );
+
 =head2 add_filter(qr/regexp/)
 
+=head2 require_of( 'MyApp::Foo' );
+
 =head2 require_by( 'MyApp::Foo' );
+
+Deprecated. For backwards compatibility only.
 
 =head1 SEE ALSO
 
@@ -201,6 +240,6 @@ L<UNIVERSAL::require>
 
 =head1 AUTHOR
 
-Masahiro Funakoshi <mfunakoshi+cpan@gmail.com>
+Masahiro Funakoshi <masap@cpan.org>
 
 =cut 
